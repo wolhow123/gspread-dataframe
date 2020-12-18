@@ -180,17 +180,15 @@ def _determine_column_header_size(columns):
     return 1
 
 
-def set_with_dataframe(
-    worksheet,
-    dataframe,
-    row=1,
-    col=1,
-    include_index=False,
-    include_column_header=True,
-    resize=False,
-    allow_formulas=True,
-    string_escaping="default",
-):
+def set_with_dataframe(worksheet,
+                       dataframe,
+                       row=1,
+                       col=1,
+                       include_index=False,
+                       include_column_header=True,
+                       resize=False,
+                       allow_formulas=True,
+                       string_escaping='default'):
     """
     Sets the values of a given DataFrame, anchoring its upper-left corner
     at (row, col). (Default is row 1, column 1.)
@@ -199,9 +197,9 @@ def set_with_dataframe(
     :param dataframe: the DataFrame.
     :param include_index: if True, include the DataFrame's index as an
             additional column. Defaults to False.
-    :param include_column_header: if True, add a header row or rows before data
-            with column names. (If include_index is True, the index's name(s)
-            will be used as its columns' headers.) Defaults to True.
+    :param include_column_header: if True, add a header row or rows before data with
+            column names. (If include_index is True, the index's name(s) will be
+            used as its columns' headers.) Defaults to True.
     :param resize: if True, changes the worksheet's size to match the shape
             of the provided DataFrame. If False, worksheet will only be
             resized as necessary to contain the DataFrame contents.
@@ -209,120 +207,160 @@ def set_with_dataframe(
     :param allow_formulas: if True, interprets `=foo` as a formula in
             cell values; otherwise all text beginning with `=` is escaped
             to avoid its interpretation as a formula. Defaults to True.
-    :param string_escaping: determines when string values are escaped as text
-            literals (by adding an initial `'` character) in requests to
-            Sheets API.
+    :param string_escaping: determines when string values are escaped as text literals
+            (by adding an initial `'` character) in requests to Sheets API. 
             Four parameter values are accepted:
-              - 'default': only escape strings starting with a literal `'`
-                           character
-              - 'off': escape nothing; cell values starting with a `'` will be
-                       interpreted by sheets as an escape character followed by
-                       a text literal.
+              - 'default': only escape strings starting with a literal `'` character
+              - 'off': escape nothing; cell values starting with a `'` will be interpreted by 
+                       sheets as an escape character followed by a text literal.
               - 'full': escape all string values
-              - any callable object: will be called once for each cell's string
-                     value; if return value is true, string will be escaped
-                     with preceding `'` (A useful technique is to pass a
-                     regular expression bound method, e.g.
-                     `re.compile(r'^my_regex_.*$').search`.)
-            The escaping done when allow_formulas=False (escaping string values
-            beginning with `=`) is unaffected by this parameter's value.
+              - any callable object: will be called once for each cell's string value;
+                     if return value is true, string will be escaped with preceding `'`
+                     (A useful technique is to pass a regular expression bound method, e.g. 
+                    `re.compile(r'^my_regex_.*$').search`.)
+            The escaping done when allow_formulas=False (escaping string values beginning with `=`)
+            is unaffected by this parameter's value. 
             Default value is `'default'`.
     """
     # x_pos, y_pos refers to the position of data rows only,
     # excluding any header rows in the google sheet.
     # If header-related params are True, the values are adjusted
     # to allow space for the headers.
-    y, x = dataframe.shape
-    index_col_size = 0
-    column_header_size = 0
-    if include_index:
-        index_col_size = _determine_index_column_size(dataframe.index)
-        x += index_col_size
-    if include_column_header:
-        column_header_size = _determine_column_header_size(dataframe.columns)
-        y += column_header_size
-    if resize:
-        worksheet.resize(y, x)
-    else:
-        _resize_to_minimum(worksheet, y, x)
 
     updates = []
 
     if include_column_header:
         elts = list(dataframe.columns)
-        # if columns object is multi-index, it will span multiple rows
-        if column_header_size > 1:
-            elts = list(dataframe.columns)
-            if include_index:
-                if hasattr(dataframe.index, "names"):
-                    index_elts = dataframe.index.names
-                else:
-                    index_elts = dataframe.index.name
-                if not isinstance(index_elts, (list, tuple)):
-                    index_elts = [index_elts]
-                elts = [
-                    ((None,) * (column_header_size - 1)) + (e,)
-                    for e in index_elts
-                ] + elts
-            for level in range(0, column_header_size):
-                for idx, tup in enumerate(elts):
-                    updates.append(
-                        (
-                            row,
-                            col + idx,
-                            _cellrepr(
-                                tup[level], allow_formulas, string_escaping
-                            ),
-                        )
-                    )
-                row += 1
-        else:
-            elts = list(dataframe.columns)
-            if include_index:
-                if hasattr(dataframe.index, "names"):
-                    index_elts = dataframe.index.names
-                else:
-                    index_elts = dataframe.index.name
-                if not isinstance(index_elts, (list, tuple)):
-                    index_elts = [index_elts]
-                elts = list(index_elts) + elts
-            for idx, val in enumerate(elts):
-                updates.append(
-                    (
-                        row,
-                        col + idx,
-                        _cellrepr(val, allow_formulas, string_escaping),
-                    )
-                )
-            row += 1
+            
+        if include_index:
+            if hasattr(dataframe.index, 'names'):
+                index_elts = dataframe.index.names
+            else:
+                index_elts = dataframe.index.name
+            if not isinstance(index_elts, (list, tuple)):
+                index_elts = [ index_elts ]
+            elts = list(index_elts) + elts
+        for idx, val in enumerate(elts):
+            updates.append(
+                (row,
+                    col+idx,
+                    _cellrepr(val, allow_formulas, string_escaping))
+            )
+        row += 1
 
     values = []
-    for value_row, index_value in zip_longest(
-        dataframe.values, dataframe.index
-    ):
+    for value_row, index_value in zip_longest(dataframe.values, dataframe.index):
         if include_index:
             if not isinstance(index_value, (list, tuple)):
-                index_value = [index_value]
+                index_value = [ index_value ]
             value_row = list(index_value) + list(value_row)
         values.append(value_row)
     for y_idx, value_row in enumerate(values):
         for x_idx, cell_value in enumerate(value_row):
             updates.append(
-                (
-                    y_idx + row,
-                    x_idx + col,
-                    _cellrepr(cell_value, allow_formulas, string_escaping),
-                )
+                (y_idx+row,
+                 x_idx+col,
+                 _cellrepr(cell_value, allow_formulas, string_escaping))
             )
 
     if not updates:
         logger.debug("No updates to perform on worksheet.")
         return
 
-    cells_to_update = [Cell(row, col, value) for row, col, value in updates]
+    cells_to_update = [ Cell(row, col, value) for row, col, value in updates ]
     logger.debug("%d cell updates to send", len(cells_to_update))
 
-    resp = worksheet.update_cells(
-        cells_to_update, value_input_option="USER_ENTERED"
-    )
+    resp = worksheet.update_cells(cells_to_update, value_input_option='USER_ENTERED')
     logger.debug("Cell update response: %s", resp)
+    
+def set_with_dataframes(worksheet,
+                       dataframe_list,
+                       row_list=1,
+                       col=1,
+                       include_index=False,
+                       include_column_header=True,
+                       resize=False,
+                       allow_formulas=True,
+                       string_escaping='default'):
+    """
+    Sets the values of a given DataFrame, anchoring its upper-left corner
+    at (row, col). (Default is row 1, column 1.)
+
+    :param worksheet: the gspread worksheet to set with content of DataFrame.
+    :param dataframe: the DataFrame.
+    :param include_index: if True, include the DataFrame's index as an
+            additional column. Defaults to False.
+    :param include_column_header: if True, add a header row or rows before data with
+            column names. (If include_index is True, the index's name(s) will be
+            used as its columns' headers.) Defaults to True.
+    :param resize: if True, changes the worksheet's size to match the shape
+            of the provided DataFrame. If False, worksheet will only be
+            resized as necessary to contain the DataFrame contents.
+            Defaults to False.
+    :param allow_formulas: if True, interprets `=foo` as a formula in
+            cell values; otherwise all text beginning with `=` is escaped
+            to avoid its interpretation as a formula. Defaults to True.
+    :param string_escaping: determines when string values are escaped as text literals
+            (by adding an initial `'` character) in requests to Sheets API. 
+            Four parameter values are accepted:
+              - 'default': only escape strings starting with a literal `'` character
+              - 'off': escape nothing; cell values starting with a `'` will be interpreted by 
+                       sheets as an escape character followed by a text literal.
+              - 'full': escape all string values
+              - any callable object: will be called once for each cell's string value;
+                     if return value is true, string will be escaped with preceding `'`
+                     (A useful technique is to pass a regular expression bound method, e.g. 
+                    `re.compile(r'^my_regex_.*$').search`.)
+            The escaping done when allow_formulas=False (escaping string values beginning with `=`)
+            is unaffected by this parameter's value. 
+            Default value is `'default'`.
+    """
+    # x_pos, y_pos refers to the position of data rows only,
+    # excluding any header rows in the google sheet.
+    # If header-related params are True, the values are adjusted
+    # to allow space for the headers.
+    updates = []
+    for dataframe, row in zip(dataframe_list, row_list):
+        elts = list(dataframe.columns)
+            
+        if include_index:
+            if hasattr(dataframe.index, 'names'):
+                index_elts = dataframe.index.names
+            else:
+                index_elts = dataframe.index.name
+            if not isinstance(index_elts, (list, tuple)):
+                index_elts = [ index_elts ]
+            elts = list(index_elts) + elts
+        for idx, val in enumerate(elts):
+            updates.append(
+                (row,
+                    col+idx,
+                    _cellrepr(val, allow_formulas, string_escaping))
+            )
+        row += 1
+
+        values = []
+        for value_row, index_value in zip_longest(dataframe.values, dataframe.index):
+            if include_index:
+                if not isinstance(index_value, (list, tuple)):
+                    index_value = [ index_value ]
+                value_row = list(index_value) + list(value_row)
+            values.append(value_row)
+        for y_idx, value_row in enumerate(values):
+            for x_idx, cell_value in enumerate(value_row):
+                updates.append(
+                    (y_idx+row,
+                    x_idx+col,
+                    _cellrepr(cell_value, allow_formulas, string_escaping))
+                )
+
+    if not updates:
+        logger.debug("No updates to perform on worksheet.")
+        return
+
+    cells_to_update = [ Cell(row, col, value) for row, col, value in updates ]
+    logger.debug("%d cell updates to send", len(cells_to_update))
+
+    resp = worksheet.update_cells(cells_to_update, value_input_option='USER_ENTERED')
+    logger.debug("Cell update response: %s", resp)
+
